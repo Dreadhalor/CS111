@@ -78,7 +78,7 @@ void create_shell() {
     //redirect stdin, stdout, stderr to shell
     redirect_stdio(pipes);
 
-    if (execl("/bin/bash","bash") == -1) {
+    if (execl("/bin/bash","bash", NULL) == -1) {
       write(STDERR_FILENO, (void*)"Error", strlen("Error"));
       error_out("Unable to execute shell.", 1);
     }
@@ -103,68 +103,71 @@ void intercept_input(int pipes[2], int shell_pid) {
 
   while (1) {
     result = poll(sources, 2, 0);
-    if (result == -1)
-      error_out("Could not poll sources.", 1);
-    if (shutdown && !(sources[1].revents & POLLIN)) {
-      int shell_status = 0;
-      if (waitpid(shell_pid, &shell_status, 0) == -1)
-        error_out("Could not get shell exit status.", 1);
+    if (result == -1) error_out("Could not poll sources.", 1);
+    else if (result > 0){
+      if (shutdown && !(sources[1].revents & POLLIN)) {
+        int shell_status = 0;
+        if (waitpid(shell_pid, &shell_status, 0) == -1)
+          error_out("Could not get shell exit status.", 1);
 
-      fprintf(stderr,
-        "SHELL EXIT SIGNAL=%d STATUS=%d\n",
-        WTERMSIG(shell_status),
-        WEXITSTATUS(shell_status)
-      );
-      return;
-    }
-    if (sources[0].revents != 0) {
-      if (sources[0].revents & POLLIN) {
-        n_read = xread(
-          sources[0].fd,
-          (void*)input_buffer,
-          BUFFER_SIZE
+        fprintf(stderr,
+          "SHELL EXIT SIGNAL=%d STATUS=%d\n",
+          WTERMSIG(shell_status),
+          WEXITSTATUS(shell_status)
         );
-        xwrite_noncanonical(STDOUT_FILENO, input_buffer, n_read);
-        if (!closed) {
-          if (xwrite_shell(pipes[WRITE_END], input_buffer, n_read, shell_pid)) {
-            close(pipes[WRITE_END]);
-            closed = 1;
-          }
-        } else {
-          int i = 0;
-          for (i = 0; i < n_read; i++) {
-            if (input_buffer[i] == 0x003) {
-              if (kill(shell_pid, SIGINT) == -1)
-                error_out("Failed to KILL shell.", 1);
+        return;
+      }
+
+      if (sources[0].revents != 0) {
+        if (sources[0].revents & POLLIN) {
+          n_read = xread(
+            sources[0].fd,
+            (void*)input_buffer,
+            BUFFER_SIZE
+          );
+          xwrite_noncanonical(STDOUT_FILENO, input_buffer, n_read);
+          if (!closed) {
+            if (xwrite_shell(pipes[WRITE_END], input_buffer, n_read, shell_pid)) {
+              close(pipes[WRITE_END]);
+              closed = 1;
+            }
+          } else {
+            int i = 0;
+            for (i = 0; i < n_read; i++) {
+              if (input_buffer[i] == 0x003) {
+                if (kill(shell_pid, SIGINT) == -1)
+                  error_out("Failed to KILL shell.", 1);
+              }
             }
           }
-        }
 
-        if (sigpipe) {
+          if (sigpipe) {
+            shutdown = 1;
+            if (!closed) {
+              close(pipes[WRITE_END]);
+              closed = 1;
+            }
+          }
+        } else fprintf(stderr, "Error polling stdin.\r\n");
+      }
+
+      if (sources[1].revents != 0) {
+        if (sources[1].revents & POLLIN) {
+          n_read = xread(sources[1].fd, (void*)input_buffer, BUFFER_SIZE);
+
+          if (xwrite_noncanonical(STDOUT_FILENO, input_buffer, n_read)) {
+            shutdown = 1;
+            if (!closed) {
+              close(pipes[WRITE_END]);
+              closed = 1;
+            }
+          }
+        } else if (sources[1].revents & (POLLERR | POLLHUP)) {
           shutdown = 1;
           if (!closed) {
             close(pipes[WRITE_END]);
             closed = 1;
           }
-        }
-      } else fprintf(stderr, "Error polling stdin.\r\n");
-    }
-    if (sources[1].revents != 0) {
-      if (sources[1].revents & POLLIN) {
-        n_read = xread(sources[1].fd, (void*)input_buffer, BUFFER_SIZE);
-
-        if (xwrite_noncanonical(STDOUT_FILENO, input_buffer, n_read)) {
-          shutdown = 1;
-          if (!closed) {
-            close(pipes[WRITE_END]);
-            closed = 1;
-          }
-        }
-      } else if (sources[1].revents & (POLLERR | POLLHUP)) {
-        shutdown = 1;
-        if (!closed) {
-          close(pipes[WRITE_END]);
-          closed = 1;
         }
       }
     }
@@ -207,7 +210,6 @@ int xwrite_shell(int fd, const char *buf, size_t n_chars, int shell_pid) {
 
     if (n_written == -1) error_out("Could not write to display.", 1);
   }
-  fprintf(stderr,"%s", buf);
 
   return 0;
 }

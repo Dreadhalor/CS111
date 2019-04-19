@@ -27,9 +27,3 @@ untar:
 
 transfer:
 	@make && make dist && scp $(TARBALL_NAME) $(USER):CS111/$(LAB)$(SUBLAB)
-
-transfer-script:
-	@scp P1A_check.sh $(USER):CS111/$(LAB)$(SUBLAB)
-
-transfer-back:
-	@scp $(USER):CS111/$(LAB)$(SUBLAB)/pty_test .

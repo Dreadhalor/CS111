@@ -1,0 +1,13 @@
+NAME: Scott Hetrick
+EMAIL: scotthetrick2@yahoo.com
+ID: 404491101
+SLIPDAYS: 3
+
+## Files
+* Makefile - Contains 'build', 'dist' & 'clean' as specificied in the spec.
+* lab1b-client.c - C source file for client.
+* lab1b-server.c - C source file for server.
+* cslib.c - various functions used by other files.
+* fxns.c - slightly higher-level functions used by client & server.
+* my.key - encryption key.
+* README - this file.

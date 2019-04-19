@@ -1,0 +1,17 @@
+NAME: Scott Hetrick
+EMAIL: Scotthetrick2@yahoo.com
+ID: 404491101
+SLIPDAYS: 0
+
+Beaglebone serial number: BBGW17090154
+Beaglebone MAC address: 2CF7F1066A1A
+
+Files:
+* my_beaglebone.jpg: a picture of me holding the Beaglebone.
+* connected.png: a picture of a terminal connected to the Beaglebone after issuing an 'ifconfig' command to show the name & ip address of the Beaglebone.
+* copy.png: a terminal showing the use of scp to copy a helloworld.c file from my laptop to the Beaglebone via wifi.
+* git.png: a terminal showing the installation of git onto the Beaglebone & subsequent cloning of one of my github repositories into a folder called 'repository-directory'.
+* Makefile: a makefile with a default set to tar all the files listed here.
+* README: this file!
+
+NOTE: I used the same Beaglebone as Chi Wong for this project.

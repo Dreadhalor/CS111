@@ -1,0 +1,15 @@
+NAME: Scott Hetrick
+EMAIL: scotthetrick2@yahoo.com
+ID: 404491101
+SLIPDAYS: 4
+
+## Files
+* backtrace.png: A screenshot of the backtrace when the program crashed in GDB with the --segfault option.
+* breakpoint.png: A screenshot confirming that at the breakpoint the segfault_trigger pointer variable is set to 0.
+* lab0.c: Source code (minus the error formatting).
+* errors.c: Source code included by lab0.c that handles the formatting of errors.
+* Makefile: Makefile with clean, check, + dist options
+* README: This file!
+
+## Check functionality
+I check the return values of 3 cases: input error for a nonexistent file, output error for a file without write permissions & catching the segfault error.

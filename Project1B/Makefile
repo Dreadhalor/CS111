@@ -1,11 +1,37 @@
 .SILENT:
 
+#NAME: Scott Hetrick
+#EMAIL: Scotthetrick2@yahoo.com
+#ID: 404491101
+
+COMPILER = gcc
+CFLAGS = -g -Wall -Wextra -std=c99 -D_POSIX_C_SOURCE
+OUTPUT-CLIENT = $(LAB)$(SUBLAB)-client
+INPUT-CLIENT = $(OUTPUT-CLIENT).c
+OUTPUT-SERVER = $(LAB)$(SUBLAB)-server
+INPUT-SERVER = $(OUTPUT-SERVER).c
+SOURCES = lab1b-client.c lab1b-server.c cslib.c fxns.c client-fxns.c server-fxns.c README my.key Makefile
+ID = 404491101
+LAB = lab1
+SUBLAB = b
+TARBALL_NAME = $(LAB)$(SUBLAB)-$(ID).tar.gz
+USER = hetrick@lnxsrv.seas.ucla.edu
+
 default:
-	gcc -g lab1b-client.c -o lab1b-client -Wall -Wextra
-	gcc -g lab1b-server.c -o lab1b-server -Wall -Wextra
+	$(COMPILER) $(CFLAGS) -o $(OUTPUT-CLIENT) $(INPUT-CLIENT)
+	$(COMPILER) $(CFLAGS) -o $(OUTPUT-SERVER) $(INPUT-SERVER)
 
 clean:
-	rm -f lab1b-server lab1b-client lab1b-404491101.tar.gz
+	rm -f $(OUTPUT-SERVER) $(OUTPUT-CLIENT) $(TARBALL_NAME)
 
 dist:
-	tar -czf lab1b-404491101.tar.gz lab1b-client.c lab1b-server.c cslib.c fxns.c README my.key Makefile
+	@tar -czf $(TARBALL_NAME) $(SOURCES)
+
+untar:
+	@tar -xf $(TARBALL_NAME)
+
+transfer:
+	@make && make dist && scp $(TARBALL_NAME) $(USER):CS111/$(LAB)$(SUBLAB)
+
+transfer-script:
+	@scp P1B_check.sh $(USER):CS111/$(LAB)$(SUBLAB)

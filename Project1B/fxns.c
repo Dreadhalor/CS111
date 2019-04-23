@@ -27,11 +27,14 @@
 #define WRITE_END 1
 #endif
 
-struct termios init;
+struct termios termios_init;
 
-void error_out(char *msg){
-  fprintf(stderr, "%s\n", msg);
-  set_termios(init);
+void error_out(char *error_msg, int print_errno) {
+  tcsetattr(STDIN_FILENO, TCSANOW, &termios_init);
+
+  if (print_errno) fprintf(stderr, "%s - %s", error_msg, strerror(errno));
+  else fprintf(stderr, "Error - %s", error_msg);
+
   exit(1);
 }
 
@@ -43,45 +46,6 @@ int set_non_canonical_no_echo_mode(){
   settings.c_lflag = 0;
 
   return set_termios(settings);
-}
-
-int create_socket(int port) {
-  int domain = AF_INET; //(IPv4 protocol)
-  int type = SOCK_STREAM; //(TCP)
-  int protocol = 0;
-
-  int socket_fd = socket(domain, type, protocol);
-	if (socket_fd < 0) return -1;
-
-  struct sockaddr_in server_address;
-  server_address.sin_family = domain;
-  server_address.sin_port = htons(port);
-  server_address.sin_addr.s_addr = INADDR_ANY;
-
-  int connected = connect(socket_fd, (struct sockaddr *) &server_address, sizeof(server_address));
-  if (connected < 0) return -1;
-
-  return socket_fd;
-}
-
-int create_server_socket(int port) {
-  int domain = AF_INET; //(IPv4 protocol)
-  int type = SOCK_STREAM; //(TCP)
-  int protocol = 0;
-
-  int socket_fd = socket(domain, type, protocol);
-	if (socket_fd < 0) return -1;
-
-  struct sockaddr_in server_address;
-  server_address.sin_family = domain;
-  server_address.sin_port = htons(port);
-  server_address.sin_addr.s_addr = INADDR_ANY;
-
-  bind(socket_fd, (struct sockaddr *) &server_address, sizeof(server_address));
-
-  listen(socket_fd, 5);
-
-  return socket_fd;
 }
 
 void redirect_stdio(int pipes[2]){
@@ -136,7 +100,7 @@ ssize_t xwrite_noncanonical(int fd, const char *buf, size_t n_chars) {
         break;
     }
 
-    if (n_written == -1) error_out("Could not write to display in non canonical mode.");
+    if (n_written == -1) error_out("Could not write to display in non canonical mode.", 1);
   }
 
   return 0;
@@ -146,19 +110,17 @@ ssize_t xread(int fd, void *buf, size_t nbyte) {
   ssize_t n_read = read(fd, buf, nbyte);
 
   if (n_read == -1)
-    error_out("Failed to read from file.");
+    error_out("Failed to read from file.", 1);
 
   return n_read;
 }
 
 int xwrite_shell(int fd, const char *buf, size_t n_chars, int shell_pid) {
-  unsigned int i = 0;
   ssize_t n_written = 0;
-
-  for (; i < n_chars; i++) {
+  for (int i = 0; i < n_chars; i++) {
     switch (buf[i]) {
       case 0x003:
-        if (kill(shell_pid, SIGINT) == -1) error_out("Could not KILL shell.");
+        if (kill(shell_pid, SIGINT) == -1) error_out("Could not KILL shell.", 1);
         fprintf(stderr, "Signal successfully forwarded!\r\n");
         break;
       case 0x004: return 1;
@@ -170,8 +132,20 @@ int xwrite_shell(int fd, const char *buf, size_t n_chars, int shell_pid) {
         break;
     }
 
-    if (n_written == -1) error_out("Could not write to display.");
+    if (n_written == -1) error_out("Could not write to display.", 1);
   }
 
   return 0;
+}
+
+void prepare_socket_vals(int port, int *socket_fd, struct sockaddr_in *server_address){
+  int domain = AF_INET; //(IPv4 protocol)
+  int type = SOCK_STREAM; //(TCP)
+  int protocol = 0;
+
+  *socket_fd = socket(domain, type, protocol);
+
+  server_address -> sin_family = domain;
+  server_address -> sin_port = htons(port);
+  server_address -> sin_addr.s_addr = INADDR_ANY;
 }

@@ -14,6 +14,7 @@
 #include <poll.h>
 
 #include "fxns.c"
+#include "client-fxns.c"
 
 void sigint_handler(int sig);
 void intercept_input();
@@ -39,27 +40,23 @@ int main(int argc, char *argv[]) {
       case 'e': break;
       case 'd': break;
 			default:
-				error_out("Incorrect argument. Usage: lab1b-client [port p]\np: Port to open\n");
+				error_out("Incorrect argument. Usage: lab1b-client [port p]\np: Port to open\n", 1);
 		}
 	}
 
   //signal(SIGINT, sigint_handler);
 	
-  store_stdin_settings(&init);
+  store_stdin_settings(&termios_init);
   set_non_canonical_no_echo_mode();
   socket_fd = create_socket(port);
   if (socket_fd < 0) {
     fprintf(stderr, "Could not connect to server. Error: ");
-    error_out(strerror(errno));
+    error_out(strerror(errno), errno);
   }
-
   intercept_input();
 
-  /*char server_response[256];
-  recv(socket_fd, &server_response, sizeof(server_response), 0);
-  printf("data: %s\n\r", server_response);*/
   close(socket_fd);
-  set_termios(init);
+  set_termios(termios_init);
   
 	exit(0);
 }
@@ -76,33 +73,11 @@ void intercept_input() {
   };
   //signal(SIGPIPE, sigpipe_handler);
 
-  int result = 0;
-
   while (1) {
-    result = poll(sources, 2, 0);
+    int result = poll(sources, 2, 0);
     if (result == -1)
-      error_out("Could not poll sources.");
-    if (sources[0].revents != 0) {
-      if (sources[0].revents & POLLIN) {
-        char buffer[1024];
-        int len = read(STDIN_FILENO, &buffer, sizeof(buffer));
-        int i;
-        for (i = 0; i < len; i++){
-          switch (buffer[i]) {
-            default: write(socket_fd, buffer + i, 1);
-          }
-        }
-      } else fprintf(stderr, "Error polling stdin.\r\n");
-    }
-    if (sources[1].revents != 0) {
-      if (sources[1].revents & POLLIN) {
-        char server_response[BUFFER_SIZE];
-        int len = read(sources[1].fd, &server_response, sizeof(server_response));
-        int i;
-        for (i = 0; i < len; i++){
-          printf("%c", server_response[i]);
-        }
-      } else printf("AHHH");
-    }
+      error_out("Could not poll sources.", 1);
+    poll_stdin(sources[0], socket_fd);
+    poll_server(sources[1]);
   }
 }

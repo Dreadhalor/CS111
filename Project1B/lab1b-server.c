@@ -11,6 +11,7 @@
 #include <sys/wait.h>
 
 #include "fxns.c"
+#include "server-fxns.c"
 
 #define N_POLL_SOURCES 3
 
@@ -43,6 +44,7 @@ void sigpipe_handler(int sig) {
   //signal(sig, sigpipe_handler);
 }
 
+
 int main(int argc, char *argv[]) {
   struct option options[]= {
 		{"port", required_argument, 0, 'p'},
@@ -61,7 +63,7 @@ int main(int argc, char *argv[]) {
       case 'e': break;
       case 'd': break;
 			default:
-				error_out("Incorrect argument. Usage: lab1b-server [port p]\np: Port to open\n");
+				error_out("Incorrect argument. Usage: lab1b-server [port p]\np: Port to open\n", 1);
 		}
 	}
 
@@ -72,29 +74,20 @@ int main(int argc, char *argv[]) {
   }
 
   client_socket_fd = accept(server_socket_fd, NULL, NULL);
-  if (client_socket_fd < 0) error_out("Could not connect to client socket.");
+  if (client_socket_fd < 0) error_out("Could not connect to client socket.", 1);
 
-  /*fds[0].fd = client_socket_fd;
+  fds[0].fd = client_socket_fd;
   fds[0].events = POLLIN;
 
-
+  //create_shell();
 
   while (1) {
-    int pollval = poll(fds, 1, 0);
-    if (pollval < 0) {
-      error_out("Error polling for input from client!");
-    } else {
-      char buffer[BUFFER_SIZE];
-      int len = recv(client_socket_fd, buffer, sizeof(buffer), 0);
-      for (int i = 0; i < len; i++) {
-        switch (buffer[i]) {
-          default: write(, buffer[i]);
-        }
-      }
-    }
-  }*/
-
-  create_shell();
+    int result = poll(fds, 1, 0);
+    if (result < 0)
+      error_out("Error polling for input from client!", 1);
+    poll_client(fds[0], STDOUT_FILENO);
+    poll_shell();
+  }
   
   close(server_socket_fd);
 
@@ -102,6 +95,7 @@ int main(int argc, char *argv[]) {
 }
 
 void intercept_input(int pipes[2], int shell_pid) {
+  //input to shell
   struct pollfd sources[N_POLL_SOURCES] = {
     {STDIN_FILENO, POLLIN, 0},
     {pipes[READ_END], POLLIN, 0},
@@ -116,11 +110,11 @@ void intercept_input(int pipes[2], int shell_pid) {
   while (1) {
     result = poll(sources, N_POLL_SOURCES, 0);
     if (result == -1)
-      error_out("Could not poll sources.");
+      error_out("Could not poll sources.", 1);
     if (shutdown && !(sources[1].revents & POLLIN)) {
       int shell_status = 0;
       if (waitpid(shell_pid, &shell_status, 0) == -1)
-        error_out("Could not get shell exit status.");
+        error_out("Could not get shell exit status.", 1);
 
       fprintf(stderr,
         "SHELL EXIT SIGNAL=%d STATUS=%d\n",
@@ -147,7 +141,7 @@ void intercept_input(int pipes[2], int shell_pid) {
           for (i = 0; i < n_read; i++) {
             if (input_buffer[i] == 0x003) {
               if (kill(shell_pid, SIGINT) == -1)
-                error_out("Failed to KILL shell.");
+                error_out("Failed to KILL shell.", 1);
             }
           }
         }
@@ -207,12 +201,14 @@ void create_shell() {
     //redirect stdin, stdout, stderr to shell
     redirect_stdio(pipes);
 
-    if (execl("/bin/bash", "bash", (char*)NULL) == -1) {
-      write(STDERR_FILENO, (void*)"Error: ", strlen("Error: "));
-      error_out("Unable to execute shell.");
+    if (execl("/bin/bash","bash", NULL) == -1) {
+      write(STDERR_FILENO, (void*)"Error", strlen("Error"));
+      error_out("Unable to execute shell.", 1);
     }
+    
+
   } else if (pid > 0) {
     //parent process: handle echoing of input and forwarding to shell
     intercept_input(pipes, pid);
-  } else error_out("Failed to create child process.");
+  } else error_out("Failed to create child process.", 1);
 }

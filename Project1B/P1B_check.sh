@@ -11,16 +11,14 @@
 #	client detects/reports illegal arguments
 #	client detects/reports unwritable log file
 #	trivial shell session
-#	encrypted trivial shell session
+#	compressed trivial shell session
 #	presence of orphans
 #
 LAB="lab1b"
 README="README"
 MAKEFILE="Makefile"
-KEYFILE="my.key"
 
 
-EXPECTED=$KEYFILE
 SUFFIXES="c"
 CLIENT=lab1b-client
 SERVER=lab1b-server
@@ -303,10 +301,10 @@ fi
 
 orphan_check "trivial shell session"
 
-echo "... testing encrypted shell session"
+echo "... testing compressed shell session"
 let PORT+=1
-./$SERVER --port=$PORT --encrypt=$KEYFILE > SVR_OUT 2> SVR_ERR &
-./$PTY_TEST ./$CLIENT --encrypt=$KEYFILE --port=$PORT --log=LOG_2 > STDOUT 2> STDERR <<-EOF
+./$SERVER --port=$PORT --compress > SVR_OUT 2> SVR_ERR &
+./$PTY_TEST ./$CLIENT --compress --port=$PORT --log=LOG_2 > STDOUT 2> STDERR <<-EOF
 	PAUSE 1
 	EXPECT "/bin/bash"
 	SEND "echo \$SHELL\n"
@@ -325,20 +323,20 @@ fi
 ./$FILTER --tag=SENT LOG_2 > LOG_SENT_2
 grep "echo" LOG_SENT_2 > /dev/null
 if [ $? -eq 0 ]; then
-	echo "   encrypted SENT commands ... FAIL"
+	echo "   compressed SENT commands ... FAIL"
 	let errors+=1
 else
-	echo "   encrypted SENT commands ... PASS"
+	echo "   compressed SENT commands ... PASS"
 fi
 
 # see if the expected response was in the log
 ./$FILTER --tag=RECEIVED LOG_2 > LOG_RECV_2
 grep "bash" LOG_RECV_2 > /dev/null
 if [ $? -eq 0 ]; then
-	echo "   encrypted shell output ... FAIL"
+	echo "   compressed shell output ... FAIL"
 	let errors+=1
 else
-	echo "   encrypted shell output ... PASS"
+	echo "   compressed shell output ... PASS"
 fi
 
 # see if the server properly reported shell exit status
@@ -350,12 +348,12 @@ else
 	let errors+=1
 fi
 
-orphan_check "encrypted shell session"
+orphan_check "compressed shell session"
 
-echo "... checking use of mcrypt"
-for r in mcrypt_module_open mcrypt_generic mdecrypt_generic
+echo "... checking use of zlib"
+for r in deflateInit deflateEnd deflate inflateInit inflateEnd inflate
 do
-	grep $r *.c > /dev/null
+	grep "$r(" *.c > /dev/null
 	if [ $? -ne 0 ] 
 	then
 		echo "No calls to $r"

@@ -109,7 +109,6 @@ void intercept_input(int pipes[2], int shell_pid) {
         int shell_status = 0;
         if (waitpid(shell_pid, &shell_status, 0) == -1)
           error_out("Could not get shell exit status.", 1);
-
         fprintf(stderr,
           "SHELL EXIT SIGNAL=%d STATUS=%d\n",
           WTERMSIG(shell_status),

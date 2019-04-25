@@ -1,8 +1,8 @@
-/*#include <string.h>
+#include <string.h>
 #include <fcntl.h>
 #include <sys/types.h>
 #include <errno.h>
-#include <poll.h>*/
+#include <poll.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -12,6 +12,7 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <signal.h>
+
 
 #include "cslib.c"
 
@@ -29,13 +30,13 @@
 
 struct termios termios_init;
 
-void error_out(char *error_msg, int print_errno) {
-  tcsetattr(STDIN_FILENO, TCSANOW, &termios_init);
+void error_out(char *error_msg, int rc) {
+  //tcsetattr(STDIN_FILENO, TCSANOW, &termios_init);
 
-  if (print_errno) fprintf(stderr, "%s - %s", error_msg, strerror(errno));
-  else fprintf(stderr, "Error - %s", error_msg);
+  //if (print_errno) fprintf(stderr, "%s - %s", error_msg, strerror(errno));
+  fprintf(stderr, "Error - %s\n", error_msg);
 
-  exit(1);
+  exit(rc);
 }
 
 int set_non_canonical_no_echo_mode(){
@@ -84,11 +85,9 @@ int fork_and_set_pipes(int pipes[2]){
   return pid;
 }
 
-ssize_t xwrite_noncanonical(int fd, const char *buf, size_t n_chars) {
-  unsigned int i = 0;
+ssize_t xwrite_noncanonical(int fd, const char *buf, int n_chars) {
   ssize_t n_written = 0;
-
-  for (; i < n_chars; i++) {
+  for (int i = 0; i < n_chars; i++) {
     switch (buf[i]) {
       case '\n':
       case '\r':
@@ -96,7 +95,7 @@ ssize_t xwrite_noncanonical(int fd, const char *buf, size_t n_chars) {
         break;
       case 0x004: return 1;
       default:
-        n_written = write(fd, (void*)(buf + i), 1);
+        n_written = write(fd, buf + i, 1);
         break;
     }
 
@@ -115,7 +114,7 @@ ssize_t xread(int fd, void *buf, size_t nbyte) {
   return n_read;
 }
 
-int xwrite_shell(int fd, const char *buf, size_t n_chars, int shell_pid) {
+int xwrite_shell(int fd, const char *buf, int n_chars, int shell_pid) {
   ssize_t n_written = 0;
   for (int i = 0; i < n_chars; i++) {
     switch (buf[i]) {

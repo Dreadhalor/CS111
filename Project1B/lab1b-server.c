@@ -29,13 +29,16 @@
 
 int sigpipe = 0;
 int server_socket_fd;
-int port;
+int port = 0;
 int client_socket_fd;
+int shell_pid;
+int shell_fds[2];
+int log_flag = 0;
 
-struct pollfd fds[1];
+struct pollfd fds[2];
 
 void intercept_input(int pipes[2], int shell_pid);
-void create_shell();
+int create_shell(int pipes[2]);
 
 void sigpipe_handler(int sig) {
   sigpipe = 1;
@@ -48,9 +51,7 @@ void sigpipe_handler(int sig) {
 int main(int argc, char *argv[]) {
   struct option options[]= {
 		{"port", required_argument, 0, 'p'},
-		{"log", required_argument, 0, 'l'},
-		{"encrypt", required_argument, 0, 'e'},
-		{"debug", no_argument, 0, 'd'}
+		{"compress", no_argument, 0, 'c'}
 	};
 
   char opt = -1;
@@ -59,9 +60,7 @@ int main(int argc, char *argv[]) {
 			case 'p':
         port = atoi(optarg);
 				break;
-      case 'l': break;
-      case 'e': break;
-      case 'd': break;
+      case 'c': break;
 			default:
 				error_out("Incorrect argument. Usage: lab1b-server [port p]\np: Port to open\n", 1);
 		}
@@ -79,14 +78,29 @@ int main(int argc, char *argv[]) {
   fds[0].fd = client_socket_fd;
   fds[0].events = POLLIN;
 
-  //create_shell();
+  shell_pid = create_shell(shell_fds);
+  fds[1].fd = shell_fds[READ_END];
+  fds[1].events = POLLIN;
+  int shell_status = 0;
+
+  signal(SIGPIPE, sigpipe_handler);
 
   while (1) {
-    int result = poll(fds, 1, 0);
+    if (waitpid(shell_pid, &shell_status, WNOHANG)){
+      sigpipe = 1;
+      fprintf(stderr,
+        "SHELL EXIT SIGNAL=%d STATUS=%d\n",
+        WTERMSIG(shell_status),
+        WEXITSTATUS(shell_status)
+      );
+    }
+    if (sigpipe) break;
+    int result = poll(fds, 2, 0);
     if (result < 0)
       error_out("Error polling for input from client!", 1);
-    poll_client(fds[0], STDOUT_FILENO);
-    poll_shell();
+    int test = poll_client(fds[0], shell_fds[WRITE_END], shell_pid, sigpipe);
+    if (test < 0) break;
+    poll_shell(fds[1], client_socket_fd, sigpipe);
   }
   
   close(server_socket_fd);
@@ -94,7 +108,7 @@ int main(int argc, char *argv[]) {
   exit(0);
 }
 
-void intercept_input(int pipes[2], int shell_pid) {
+/*oid intercept_input(int pipes[2], int shell_pid) {
   //input to shell
   struct pollfd sources[N_POLL_SOURCES] = {
     {STDIN_FILENO, POLLIN, 0},
@@ -158,7 +172,7 @@ void intercept_input(int pipes[2], int shell_pid) {
     if (sources[1].revents != 0) {
       if (sources[1].revents & POLLIN) {
         n_read = xread(sources[1].fd, (void*)input_buffer, BUFFER_SIZE);
-        send(client_socket_fd, input_buffer, n_read, 0);
+        send(client_socket_fd, input_buffer, n_read, 0);*/
         /*if (xwrite_noncanonical(STDOUT_FILENO, input_buffer, n_read)) {
           shutdown = 1;
           if (!closed) {
@@ -166,7 +180,7 @@ void intercept_input(int pipes[2], int shell_pid) {
             closed = 1;
           }
         }*/
-      } else if (sources[1].revents & (POLLERR | POLLHUP)) {
+      /*} else if (sources[1].revents & (POLLERR | POLLHUP)) {
         shutdown = 1;
         if (!closed) {
           close(pipes[WRITE_END]);
@@ -191,10 +205,9 @@ void intercept_input(int pipes[2], int shell_pid) {
   }
 
   exit(0);
-}
+}*/
 
-void create_shell() {
-  int pipes[2];
+int create_shell(int pipes[2]) {
   int pid = fork_and_set_pipes(pipes);
   if (pid == 0) {
     //child process: execute shell program
@@ -205,10 +218,11 @@ void create_shell() {
       write(STDERR_FILENO, (void*)"Error", strlen("Error"));
       error_out("Unable to execute shell.", 1);
     }
-    
 
   } else if (pid > 0) {
     //parent process: handle echoing of input and forwarding to shell
-    intercept_input(pipes, pid);
+    //intercept_input(pipes, pid);
+    return pid;
   } else error_out("Failed to create child process.", 1);
+  return 0;
 }

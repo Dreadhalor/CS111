@@ -5,7 +5,7 @@
 #ID: 404491101
 
 COMPILER = gcc
-CFLAGS = -g -Wall -Wextra -std=c99 -D_POSIX_C_SOURCE
+CFLAGS = -g -o2 -Wall -Wextra -D_POSIX_C_SOURCE -lz
 OUTPUT-CLIENT = $(LAB)$(SUBLAB)-client
 INPUT-CLIENT = $(OUTPUT-CLIENT).c
 OUTPUT-SERVER = $(LAB)$(SUBLAB)-server

@@ -1,0 +1,55 @@
+SENT 1 bytes: l
+SENT 1 bytes: s
+SENT 1 bytes: 
+SENT 1 bytes: 
+SENT 1 bytes: 
+RECEIVED 39 bytes: bash: line 1: ls: command not found
+
+SENT 1 bytes: lash: line 1: ls: command not found
+
+SENT 1 bytes: sash: line 1: ls: command not found
+
+SENT 1 bytes: ash: line 1: ls: command not found
+
+RECEIVED 1 bytes: Mash: line 1: ls: command not found
+
+RECEIVED 52 bytes: akefile
+P1B_check.sh
+README
+client-fxns.c
+cslib.
+RECEIVED 71 bytes: c
+fxns.c
+lab1b-404491101.tar.gz
+lab1b-client
+lab1b-client.c
+lab1b-
+RECEIVED 48 bytes: client.dSYM
+lab1b-server
+lab1b-server.c
+lab1b
+lab1b-client.c
+lab1b-
+RECEIVED 36 bytes: -server.dSYM
+logfile
+my.key
+servever.c
+lab1b
+lab1b-client.c
+lab1b-
+RECEIVED 10 bytes: r-fxns.c
+YM
+logfile
+my.key
+servever.c
+lab1b
+lab1b-client.c
+lab1b-
+SENT 1 bytes: -fxns.c
+YM
+logfile
+my.key
+servever.c
+lab1b
+lab1b-client.c
+lab1b-

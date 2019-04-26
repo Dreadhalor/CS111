@@ -22,6 +22,7 @@ void intercept_input(FILE* logfile);
 
 int socket_fd = -1;
 int closed = 0;
+int compression_flag = 0;
 
 void sigpipe_handler(int sig) {
   closed = 1;
@@ -40,7 +41,7 @@ int main(int argc, char *argv[]) {
   FILE *logfile;
 
   char opt = -1;
-	while((opt=getopt_long(argc, argv, "p:l:e:", options, NULL)) != -1) {
+	while((opt=getopt_long(argc, argv, "", options, NULL)) != -1) {
 		switch(opt) {
 			case 'p':
         port = atoi(optarg);
@@ -48,9 +49,11 @@ int main(int argc, char *argv[]) {
       case 'l':
         logfile_name = optarg;
         logfile = fopen(logfile_name, "w+");
-        if (logfile == NULL) error_out("Cannot open log file!", 1);
+        if (!logfile) error_out("Cannot open log file!", 1);
         break;
-      case 'c': break;
+      case 'c':
+        compression_flag = 1;
+        break;
 			default:
 				error_out("Incorrect argument. Usage: lab1b-client [port p]\np: Port to open\n", 1);
 		}
@@ -91,7 +94,7 @@ void intercept_input(FILE *logfile) {
     int result = poll(sources, 2, 0);
     if (result == -1)
       error_out("Could not poll sources.", 1);
-    poll_stdin(sources[0], socket_fd, logfile);
-    poll_server(sources[1], &closed, logfile);
+    poll_stdin(sources[0], socket_fd, logfile, compression_flag);
+    poll_server(sources[1], &closed, logfile, compression_flag);
   }
 }

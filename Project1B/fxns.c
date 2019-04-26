@@ -85,25 +85,7 @@ int fork_and_set_pipes(int pipes[2]){
   return pid;
 }
 
-ssize_t xwrite_noncanonical(int fd, const char *buf, int n_chars) {
-  ssize_t n_written = 0;
-  for (int i = 0; i < n_chars; i++) {
-    switch (buf[i]) {
-      case '\n':
-      case '\r':
-        n_written = write(fd, (void*)"\r\n", 2);
-        break;
-      case 0x004: return 1;
-      default:
-        n_written = write(fd, buf + i, 1);
-        break;
-    }
 
-    if (n_written == -1) error_out("Could not write to display in non canonical mode.", 1);
-  }
-
-  return 0;
-}
 
 ssize_t xread(int fd, void *buf, size_t nbyte) {
   ssize_t n_read = read(fd, buf, nbyte);

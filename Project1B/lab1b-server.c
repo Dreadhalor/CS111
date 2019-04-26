@@ -33,7 +33,7 @@ int port = 0;
 int client_socket_fd;
 int shell_pid;
 int shell_fds[2];
-int log_flag = 0;
+int compression_flag = 0;
 
 struct pollfd fds[2];
 
@@ -55,12 +55,14 @@ int main(int argc, char *argv[]) {
 	};
 
   char opt = -1;
-	while((opt = getopt_long(argc, argv, "p:l:e:d", options, NULL)) != -1) {
+	while((opt = getopt_long(argc, argv, "", options, NULL)) != -1) {
 		switch(opt) {
 			case 'p':
         port = atoi(optarg);
 				break;
-      case 'c': break;
+      case 'c':
+        compression_flag = 1;
+        break;
 			default:
 				error_out("Incorrect argument. Usage: lab1b-server [port p]\np: Port to open\n", 1);
 		}
@@ -98,114 +100,15 @@ int main(int argc, char *argv[]) {
     int result = poll(fds, 2, 0);
     if (result < 0)
       error_out("Error polling for input from client!", 1);
-    int test = poll_client(fds[0], shell_fds[WRITE_END], shell_pid, sigpipe);
+    int test = poll_client(fds[0], shell_fds[WRITE_END], shell_pid, sigpipe, compression_flag);
     if (test < 0) break;
-    poll_shell(fds[1], client_socket_fd, sigpipe);
+    poll_shell(fds[1], client_socket_fd, sigpipe, compression_flag);
   }
   
   close(server_socket_fd);
 
   exit(0);
 }
-
-/*oid intercept_input(int pipes[2], int shell_pid) {
-  //input to shell
-  struct pollfd sources[N_POLL_SOURCES] = {
-    {STDIN_FILENO, POLLIN, 0},
-    {pipes[READ_END], POLLIN, 0},
-    {client_socket_fd, POLLIN, 0}
-  };
-  signal(SIGPIPE, sigpipe_handler);
-
-  int result = 0, closed = 0, shutdown = 0;
-  char input_buffer[BUFFER_SIZE];
-  ssize_t n_read = 0;
-
-  while (1) {
-    result = poll(sources, N_POLL_SOURCES, 0);
-    if (result == -1)
-      error_out("Could not poll sources.", 1);
-    if (shutdown && !(sources[1].revents & POLLIN)) {
-      int shell_status = 0;
-      if (waitpid(shell_pid, &shell_status, 0) == -1)
-        error_out("Could not get shell exit status.", 1);
-
-      fprintf(stderr,
-        "SHELL EXIT SIGNAL=%d STATUS=%d\n",
-        WTERMSIG(shell_status),
-        WEXITSTATUS(shell_status)
-      );
-      return;
-    }
-    if (sources[0].revents != 0) {
-      if (sources[0].revents & POLLIN) {
-        n_read = xread(
-          sources[0].fd,
-          (void*)input_buffer,
-          BUFFER_SIZE
-        );
-        xwrite_noncanonical(STDOUT_FILENO, input_buffer, n_read);
-        if (!closed) {
-          if (xwrite_shell(pipes[WRITE_END], input_buffer, n_read, shell_pid)) {
-            close(pipes[WRITE_END]);
-            closed = 1;
-          }
-        } else {
-          int i = 0;
-          for (i = 0; i < n_read; i++) {
-            if (input_buffer[i] == 0x003) {
-              if (kill(shell_pid, SIGINT) == -1)
-                error_out("Failed to KILL shell.", 1);
-            }
-          }
-        }
-
-        if (sigpipe) {
-          shutdown = 1;
-          if (!closed) {
-            close(pipes[WRITE_END]);
-            closed = 1;
-          }
-        }
-      } else fprintf(stderr, "Error polling stdin.\r\n");
-    }
-    if (sources[1].revents != 0) {
-      if (sources[1].revents & POLLIN) {
-        n_read = xread(sources[1].fd, (void*)input_buffer, BUFFER_SIZE);
-        send(client_socket_fd, input_buffer, n_read, 0);*/
-        /*if (xwrite_noncanonical(STDOUT_FILENO, input_buffer, n_read)) {
-          shutdown = 1;
-          if (!closed) {
-            close(pipes[WRITE_END]);
-            closed = 1;
-          }
-        }*/
-      /*} else if (sources[1].revents & (POLLERR | POLLHUP)) {
-        shutdown = 1;
-        if (!closed) {
-          close(pipes[WRITE_END]);
-          closed = 1;
-        }
-      }
-    }
-    if (sources[2].revents != 0) {
-      if (sources[2].revents & POLLIN) {
-        char buffer[BUFFER_SIZE];
-        int len = read(sources[2].fd, &buffer, sizeof(buffer));
-        int i;
-        for (i = 0; i < len; i++) {
-          switch (buffer[i]) {
-            default:
-              write(pipes[1], buffer + i, 1);
-              //printf("%c", buffer[i]);
-          }
-        }
-      }
-    }
-  }
-
-  exit(0);
-}*/
 
 int create_shell(int pipes[2]) {
   int pid = fork_and_set_pipes(pipes);

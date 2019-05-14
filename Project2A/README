@@ -1,0 +1,11 @@
+NAME: Scott Hetrick
+EMAIL: scotthetrick2@yahoo.com
+ID: 404491101
+SLIPDAYS: 2
+
+## Files
+* Makefile - Contains 'build', 'dist' & 'clean' as specificied in the spec.
+* SortedList.h
+* SortedList.c
+* lab2_add.c
+* README - this file.

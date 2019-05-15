@@ -1,12 +1,4 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <getopt.h>
-#include <time.h>
-#include <string.h>
-#include <pthread.h>
-#include <signal.h>
 #include "SortedList.h"
-
 #include "imports.c"
 
 int n_threads = 1;
@@ -16,9 +8,9 @@ int yieldFlag = 0;
 SortedListElement_t* elements;
 SortedList_t* list;
 
-char lockType = 'n';
 pthread_mutex_t mutex;
-int spin = 0;
+char sync_flag = 0;
+volatile int spinlock = 0;
 
 int opt_yield = 0;
 char opt_tag[5] = "-";
@@ -41,73 +33,78 @@ char *get_tags(char *buffer, char *opt_tag, char sync_flag){
   return buffer;
 }
 
-void* run_thread(void* ind) {
-
-  int start = *((int*) ind);
+void* iterate(void* ptr) {
+  int start = *((int*) ptr);
   for (int i = start; i < start + iterations; i++) {
-    if (lockType == 'n') {
-      SortedList_insert(list, &elements[i]);
-    }
-    else if (lockType == 'm') {
-      pthread_mutex_lock(&mutex);
-      SortedList_insert(list, &elements[i]);
-      pthread_mutex_unlock(&mutex);
-    }
-    else if (lockType == 's') {
-      while (__sync_lock_test_and_set(&spin, 1)) {
-	continue;
+    switch(sync_flag){
+      case 'm': {
+        pthread_mutex_lock(&mutex);
+        SortedList_insert(list, &elements[i]);
+        pthread_mutex_unlock(&mutex);
+        break;
       }
-      SortedList_insert(list, &elements[i]);
-      __sync_lock_release(&spin);
+      case 's': {
+        while (__sync_lock_test_and_set(&spinlock, 1)) {
+          while(spinlock);
+        }
+        SortedList_insert(list, &elements[i]);
+        __sync_lock_release(&spinlock);
+        break;
+      }
+      default:
+        SortedList_insert(list, &elements[i]);
+        break;
     }
   }
   
-  int length = 0;
-  if (lockType == 'n') {
-    length = SortedList_length(list);
-  }
-  else if (lockType == 'm') {
-    pthread_mutex_lock(&mutex);
-    length = SortedList_length(list);
-    pthread_mutex_unlock(&mutex);
-  }
-  else if (lockType == 's') {
-    while (__sync_lock_test_and_set(&spin, 1)) {
-      continue;
+  int len = 0;
+  switch(sync_flag){
+    case 'm': {
+      pthread_mutex_lock(&mutex);
+      len = SortedList_length(list);
+      pthread_mutex_unlock(&mutex);
+      break;
     }
-    length = SortedList_length(list);
-    __sync_lock_release(&spin);
+    case 's': {
+      while (__sync_lock_test_and_set(&spinlock, 1)) {
+        while(spinlock);
+      }
+      len = SortedList_length(list);
+      __sync_lock_release(&spinlock);
+      break;
+    }
+    default:
+      len = SortedList_length(list);
+      break;
   }
-  if (length < 0) {
-    fprintf(stderr, "Error: length is negative\n");
-    exit(1);
-  }
+  if (len < 0) error_out("List length is negative", 2);
 
   SortedListElement_t* toDelete;
   for (int i = start; i < start + iterations; i++) {
-    if (lockType == 'n') {
-      toDelete = SortedList_lookup(list, elements[i].key);
-      if (SortedList_delete(toDelete)) {
-        fprintf(stderr, "Error: could not delete list element\n");
+    switch(sync_flag){
+      case 'm': {
+        pthread_mutex_lock(&mutex);
+        toDelete = SortedList_lookup(list, elements[i].key);
+        if (SortedList_delete(toDelete))
+          fprintf(stderr, "Error: could not delete list element!\n");
+        pthread_mutex_unlock(&mutex);
+        break;
       }
-    }
-    else if (lockType == 'm') {
-      pthread_mutex_lock(&mutex);
-      toDelete = SortedList_lookup(list, elements[i].key);
-      if (SortedList_delete(toDelete)) {
-        fprintf(stderr, "Error: could not delete list element\n");
+      case 's': {
+        while (__sync_lock_test_and_set(&spinlock, 1)) {
+          while(spinlock);
+        }
+        toDelete = SortedList_lookup(list, elements[i].key);
+        if (SortedList_delete(toDelete))
+          fprintf(stderr, "Error: could not delete list element!\n");
+        __sync_lock_release(&spinlock);
+        break;
       }
-      pthread_mutex_unlock(&mutex);
-    }
-    else if (lockType == 's') {
-      while (__sync_lock_test_and_set(&spin, 1)) {
-	continue;
-      }
-      toDelete = SortedList_lookup(list, elements[i].key);
-      if (SortedList_delete(toDelete)) {
-	fprintf(stderr, "Error: could not delete list element\n");
-      }
-      __sync_lock_release(&spin);
+      default:
+        toDelete = SortedList_lookup(list, elements[i].key);
+        if (SortedList_delete(toDelete))
+          fprintf(stderr, "Error: could not delete list element!\n");
+        break;
     }
   }
   
@@ -123,8 +120,6 @@ int main(int argc, char **argv){
     {"sync", required_argument, 0, 's'},
     {0, 0, 0, 0}
   };
-  
-  opterr = 0; // suppress automatic stock error message
 
   char opt = -1;
 	while((opt=getopt_long(argc, argv, "", long_options, NULL)) != -1) {
@@ -164,8 +159,8 @@ int main(int argc, char **argv){
         break;
       }
       case 's':
-        lockType = *optarg;
-        if (lockType == 'm')
+        sync_flag = *optarg;
+        if (sync_flag == 'm')
           pthread_mutex_init(&mutex, NULL);
         break;
       default:
@@ -173,42 +168,30 @@ int main(int argc, char **argv){
         break;
     }
   }
-  
-  // finish up parsing opt_tag
-  if (strlen(opt_tag) == 1) {
-    strcat(opt_tag, "none");
-  }
+  if (strlen(opt_tag) == 1) strcat(opt_tag, "none");
 
-  // first create the dummy head node
   list = malloc(sizeof(SortedList_t));
   list->key = NULL;
   list->next = list->prev = list;
-	
-  // allocated the random keys into the thread elements
-  int numElements = n_threads * iterations;
-  elements = malloc(numElements * sizeof(SortedListElement_t));
+  int n_elements = n_threads * iterations;
+  elements = malloc(n_elements * sizeof(SortedListElement_t));
   srand((unsigned int) time(NULL));
-  for (int i = 0; i < numElements; i++){
-    char* key = malloc(2 * sizeof(char));
-    key[0] = rand() % 26 + 'A';
-    key[1] = '\0';
+  for (int i = 0; i < n_elements; i++){
+    char key[2];
+    key[0] = 'A' + (rand()%26);
+    key[1] = 0;
     elements[i].key = key;
   }
 	
   struct timespec t_start, t_end;
   clock_gettime(CLOCK_REALTIME, &t_start);
 
-  // create the threads
   pthread_t threads[n_threads];
   int thread_data[n_threads];
-
-  // start the threads
   for (int i = 0; i < n_threads; i++){
     thread_data[i] = i * iterations;
-    pthread_create(&threads[i], NULL, run_thread, &thread_data[i]);
+    pthread_create(&threads[i], NULL, iterate, &thread_data[i]);
   }
-
-  // wait for threads to finish
   for (int i = 0; i < n_threads; i++)
     pthread_join(threads[i], NULL);
 
@@ -226,7 +209,7 @@ int main(int argc, char **argv){
   long long runtime = timespec_diff(t_start,t_end);
 
   char buffer[100];
-  get_tags(buffer, opt_tag, lockType);
+  get_tags(buffer, opt_tag, sync_flag);
   printf("%s,%i,%i,1,%i,%lld,%lld\n",
     buffer,
     n_threads,
@@ -235,9 +218,7 @@ int main(int argc, char **argv){
     runtime,
     runtime/n_ops
   );
-	
-  //free(threads);
-  //free(thread_data);
+
   free(list);
   free(elements);
 

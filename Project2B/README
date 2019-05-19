@@ -1,0 +1,69 @@
+NAME: Scott Hetrick
+EMAIL: scotthetrick2@yahoo.com
+ID: 404491101
+SLIPDAYS: 3
+
+## Files
+* README - this file.
+* Makefile - contains 'build', 'dist', 'clean', 'tests' & 'graphs' as specificied in the spec.
+* imports.c - helper functions & imports shared between lab2_add & lab2_list.
+* SortedList.h - provided header file for SortedList.
+* SortedList.c - implementation for SortedList.
+* lab2_add.c - implementation for lab2_add incrementing a shared variable between threads.
+* lab2_add.gp - provided file to generate graphs for lab2_add.
+* lab2_add.csv - generated data file for lab2_add from 'make tests'
+* lab2_add-1.png - graph of unsynchronized threads and iterations that run without failure (lab2_add).
+* lab2_add-2.png - graph of the cost of yielding (lab2_add).
+* lab2_add-3.png - graph of per operation cost vs number of iterations (lab2_add).
+* lab2_add-4.png - graph of synchronized threads and iterations that run without failure (lab2_add).
+* lab2_add-5.png - graph of per operation cost vs number of threads (lab2_add).
+* lab2_list.c - implementation for lab2_list modifying a shared linked list.
+* lab2_list.gp - provided file to generate graphs for lab2_list.
+* lab2_list.csv - generated data file for lab2_list from 'make tests'
+* lab2_list-1.png - graph of cost per operation vs iterations (lab2_list).
+* lab2_list-2.png - graph of unprotected threads and iterations that run without failure (lab2_list).
+* lab2_list-3.png - graph of protected iterations that run without failure (lab2_list).
+* lab2_list-4.png - graph of scalability of synchronization mechanisms (lab2_list).
+
+##Questions
+###QUESTION 2.1.1 - causing conflicts:
+Why does it take many iterations before errors are seen?
+* The longer it takes for a thread to complete a job, the more likely it becomes for one thread's time slice to overlap another's.
+Why does a significantly smaller number of iterations so seldom fail?
+* When there are few iterations, there is a very small chance of instructions overlapping.
+
+###QUESTION 2.1.2 - cost of yielding:
+Why are the --yield runs so much slower?
+* With so many yields occurring, the large number of context switches take a lot of CPU time to process.
+Where is the additional time going?
+* The additional time is spent in context switches.
+Is it possible to get valid per-operation timings if we are using the --yield option?
+* It is not guaranteed for per-operation timings to be valid using --yield.
+If so, explain how. If not, explain why not.
+* Yielding does not protect the critical section, so conflicts are reduced but still present.
+
+###QUESTION 2.1.3 - measurement errors:
+Why does the average cost per operation drop with increasing iterations?
+* Thread creation time is amortized across all iterations, so a greater amount of time proportionally taken up with iterations will cause less time to proportionally be used for thread creation.
+If the cost per iteration is a function of the number of iterations, how do we know how many iterations to run (or what the "correct" cost is)?
+* We can check the graph for this to find the optimal number of iterations.
+
+###QUESTION 2.1.4 - costs of serialization:
+Why do all of the options perform similarly for low numbers of threads?
+* With a small number of threads, there is very little competition for resources. This makes race conditions less likely to go awry.
+Why do the three protected operations slow down as the number of threads rises?
+* Increasing the number of threads increases contention for shared resources, causing for more waiting and blocking when threads try to access the same resource.
+
+###QUESTION 2.2.1 - scalability of Mutex
+Compare the variation in time per mutex-protected operation vs the number of threads in Part-1 (adds) and Part-2 (sorted lists).
+* Time per mutex-protected operation increases faster in part 2 as the number of threads increases.
+Comment on the general shapes of the curves, and explain why they have this shape.
+* As the number of threads increases, the time per operation increases as well. This is a result of increased contention for the shared resource with increased threads.
+Comment on the relative rates of increase and differences in the shapes of the curves, and offer an explanation for these differences.
+* The curve in part 2 grows faster because modifying the list is a more CPU-intensive operation, causing longer wait times for threads concurrently trying to modify the list.
+
+###QUESTION 2.2.2 - scalability of spin locks
+Compare the variation in time per protected operation vs the number of threads for list operations protected by Mutex vs Spin locks. Comment on the general shapes of the curves, and explain why they have this shape.
+* More threads causes an increase in time per protected operation. This is a result of more threads causing increased contention for the shared resource.
+Comment on the relative rates of increase and differences in the shapes of the curves, and offer an explanation for these differences.
+* The curve for spin locks increases faster than the curve for mutexes. This is a result of spin locks wasting CPU time instead of yielding in the event of not being able to acquire the lock.

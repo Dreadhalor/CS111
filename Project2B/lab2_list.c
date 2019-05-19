@@ -12,12 +12,12 @@ int n_sublists = 1;
 pthread_mutex_t *mutexes;
 char sync_flag = 0;
 int *spinlocks;
-long long *threadLockTimes;
+long long *lock_times;
 
 int opt_yield = 0;
 char opt_tag[100] = "-";
 
-int last_hash;
+//int last_hash;
 int hash(char key) {
   int result = key % n_sublists;
   /*if (last_hash != result){
@@ -59,7 +59,7 @@ void* iterate(void* ptr) {
         clock_gettime(CLOCK_MONOTONIC, &lockStartTime);
         pthread_mutex_lock(&mutexes[sublist]);
         clock_gettime(CLOCK_MONOTONIC, &lockEndTime);
-        threadLockTimes[start/iterations] += timespec_diff(lockStartTime,lockEndTime);
+        lock_times[start/iterations] += timespec_diff(lockStartTime,lockEndTime);
         SortedList_insert(&lists[sublist], &elements[i]);
         pthread_mutex_unlock(&mutexes[sublist]);
         break;
@@ -70,7 +70,7 @@ void* iterate(void* ptr) {
           continue;
         }
         clock_gettime(CLOCK_MONOTONIC, &lockEndTime);
-        threadLockTimes[start/iterations] += timespec_diff(lockStartTime,lockEndTime);
+        lock_times[start/iterations] += timespec_diff(lockStartTime,lockEndTime);
         SortedList_insert(&lists[sublist], &elements[i]);
         __sync_lock_release(&spinlocks[sublist]);
         break;
@@ -89,7 +89,7 @@ void* iterate(void* ptr) {
       clock_gettime(CLOCK_MONOTONIC, &lockStartTime);
       pthread_mutex_lock(&mutexes[rand_index]);
       clock_gettime(CLOCK_MONOTONIC, &lockEndTime);
-      threadLockTimes[start/iterations] += timespec_diff(lockStartTime,lockEndTime);
+      lock_times[start/iterations] += timespec_diff(lockStartTime,lockEndTime);
       len = SortedList_length(&lists[rand_index]);
       pthread_mutex_unlock(&mutexes[rand_index]);
       break;
@@ -100,7 +100,7 @@ void* iterate(void* ptr) {
         continue;
       }
       clock_gettime(CLOCK_MONOTONIC, &lockEndTime);
-      threadLockTimes[start/iterations] += timespec_diff(lockStartTime,lockEndTime);
+      lock_times[start/iterations] += timespec_diff(lockStartTime,lockEndTime);
       len = SortedList_length(&lists[rand_index]);
       __sync_lock_release(&spinlocks[rand_index]);
       break;
@@ -120,7 +120,7 @@ void* iterate(void* ptr) {
         clock_gettime(CLOCK_MONOTONIC, &lockStartTime);
         pthread_mutex_lock(&mutexes[sublist]);
         clock_gettime(CLOCK_MONOTONIC, &lockEndTime);
-        threadLockTimes[start/iterations] += timespec_diff(lockStartTime,lockEndTime);
+        lock_times[start/iterations] += timespec_diff(lockStartTime,lockEndTime);
         toDelete = SortedList_lookup(&lists[sublist], elements[i].key);
         if (SortedList_delete(toDelete))
           fprintf(stderr, "Error: could not delete list element!\n");
@@ -133,7 +133,7 @@ void* iterate(void* ptr) {
           continue;
         }
         clock_gettime(CLOCK_MONOTONIC, &lockEndTime);
-        threadLockTimes[start/iterations] += timespec_diff(lockStartTime,lockEndTime);
+        lock_times[start/iterations] += timespec_diff(lockStartTime,lockEndTime);
         toDelete = SortedList_lookup(&lists[sublist], elements[i].key);
         if (SortedList_delete(toDelete))
           fprintf(stderr, "Error: could not delete list element!\n");
@@ -147,7 +147,6 @@ void* iterate(void* ptr) {
         break;
     }
   }
-  
   return NULL;
 }
 
@@ -212,7 +211,7 @@ int main(int argc, char **argv){
   }
   if (strlen(opt_tag) == 1) strcat(opt_tag, "none");
 
-  // first create the dummy head node
+  //initialize lists
   lists = malloc(n_sublists * sizeof(SortedList_t));
   for (int i = 0; i < n_sublists; i++) {
     lists[i].key = NULL;
@@ -230,7 +229,7 @@ int main(int argc, char **argv){
     elements[i].key = key;
   }
 
-  // initialize (if option is set) a mutex for each sublist
+  // initialize mutexes
   mutexes = malloc(n_sublists * sizeof(pthread_mutex_t));
   if (sync_flag == 'm') {
     for (int i = 0; i < n_sublists; i++) {
@@ -238,7 +237,7 @@ int main(int argc, char **argv){
     }
   }
 
-  // initialize (if option is set) a spin lock for each sublist
+  // initialize spinlocks
   spinlocks = malloc(n_sublists * sizeof(int));
   if (sync_flag == 's') {
     for (int i = 0; i < n_sublists; i++) {
@@ -246,8 +245,8 @@ int main(int argc, char **argv){
     }
   }
 
-  // for getting total time spent on locking for each thread
-  threadLockTimes = malloc(sizeof(long long) * n_threads);
+  // initialize thread lock times
+  lock_times = malloc(sizeof(long long) * n_threads);
 	
   struct timespec t_start, t_end;
   clock_gettime(CLOCK_MONOTONIC, &t_start);
@@ -263,14 +262,12 @@ int main(int argc, char **argv){
 
   clock_gettime(CLOCK_MONOTONIC, &t_end);
 
-  // add up the wait-for-lock times for each thread
-  long long totalLockTime = 0;
+  // get total lock time
+  long long total_lock_time = 0;
   for (int i = 0; i < n_threads; i++) {
-    totalLockTime += threadLockTimes[i]; 
+    total_lock_time += lock_times[i]; 
   }
 
-
-  //int len = SortedList_length(list);
   int len = 0;
   for (int i = 0; i < n_sublists; i++)
     len += SortedList_length(&lists[i]);
@@ -294,10 +291,10 @@ int main(int argc, char **argv){
     n_ops,
     runtime,
     runtime/n_ops,
-    totalLockTime/n_ops
+    total_lock_time/n_ops
   );
 
-  free(threadLockTimes);
+  free(lock_times);
   free(lists);
   for (int i = 0; i < n_elements; i++)
     free((char*) elements[i].key);

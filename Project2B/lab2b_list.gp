@@ -10,11 +10,11 @@
 #   8. wait-lock time
 #
 # output:
-# 	1. lab2b_1.png: throughput(total number of operations per second) for Mutex and Spin-lock
-#   2. lab2b_2.png: wait-for-lock and average time per operation vs Threads
-#   3. lab2b_3.png: Unprotected/protected Threads and Iterations that run without failure
-#   4. lab2b_4.png: Throughput vs Threads (sync=m)
-#   5. lab2b_5.png: Throughput vs Threads (sync=s)
+# lab2b_1.png: throughput for mutex and spinlock
+# lab2b_2.png: wait-for-lock and average time per operation vs threads
+# lab2b_3.png: unprotected/protected threads and iterations that run without failure
+# lab2b_4.png: throughput vs threads (sync=m)
+# lab2b_5.png: throughput vs threads (sync=s)
 
 # general plot parameters
 set terminal png
